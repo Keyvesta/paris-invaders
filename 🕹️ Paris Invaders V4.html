@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>🕹️ Paris Invaders V4</title>
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.4.1/dist/MarkerCluster.Default.css"/>
+<link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0a0a0f;--panel:#0f0f1a;--border:#1a1a2e;--ok:#00ff88;--damaged:#ffaa00;--destroyed:#ff3355;--hidden:#8888ff;--text:#c8c8e8;--accent:#00ffcc}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--text);font-family:'Share Tech Mono',monospace;height:100vh;display:flex;flex-direction:column;overflow:hidden}
+#splash{position:fixed;inset:0;background:var(--bg);display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;gap:20px;transition:opacity .3s}
+#splash-title{font-family:'Orbitron',monospace;font-weight:900;font-size:32px;color:var(--accent);text-shadow:0 0 30px rgba(0,255,204,.7);letter-spacing:4px;animation:pulse 2s infinite}
+#splash-title span{color:#ff3355}
+@keyframes pulse{0%,100%{text-shadow:0 0 20px rgba(0,255,204,.4)}50%{text-shadow:0 0 50px rgba(0,255,204,.9)}}
+#splash-bar-bg{width:300px;height:2px;background:#1a1a2e;border-radius:1px;overflow:hidden}
+#splash-bar{height:100%;width:0%;background:linear-gradient(90deg,var(--ok),var(--accent));transition:width .4s ease}
+#splash-msg{font-size:11px;color:#444;letter-spacing:2px}
+#splash-msg::after{content:'_';animation:blink 1s infinite}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0}}
+#splash-err{color:var(--destroyed);font-size:12px;text-align:center;max-width:320px;line-height:1.6;display:none}
+#header{background:var(--panel);border-bottom:1px solid var(--border);padding:7px 14px;display:none;align-items:center;gap:10px;flex-wrap:wrap;z-index:1000;flex-shrink:0}
+#title{font-family:'Orbitron',monospace;font-weight:900;font-size:14px;color:var(--accent);letter-spacing:2px;white-space:nowrap}
+#title s{color:#ff3355;text-decoration:none}
+#stats{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
+.stat{display:flex;align-items:center;gap:4px;font-size:11px;padding:3px 7px;border-radius:3px;border:1px solid;cursor:pointer;transition:all .2s;user-select:none;white-space:nowrap}
+.stat.off{opacity:.2}
+.ok{color:var(--ok);border-color:var(--ok)}.ok.on{background:rgba(0,255,136,.1)}
+.dm{color:var(--damaged);border-color:var(--damaged)}.dm.on{background:rgba(255,170,0,.1)}
+.ds{color:var(--destroyed);border-color:var(--destroyed)}.ds.on{background:rgba(255,51,85,.1)}
+.hd{color:var(--hidden);border-color:var(--hidden)}.hd.on{background:rgba(136,136,255,.1)}
+.dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.ok .dot{background:var(--ok)}.dm .dot{background:var(--damaged)}.ds .dot{background:var(--destroyed)}.hd .dot{background:var(--hidden)}
+#right{display:flex;align-items:center;gap:8px;margin-left:auto}
+#search{background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;padding:4px 10px;border-radius:3px;width:100px;outline:none}
+#search:focus{border-color:var(--accent)}#search::placeholder{color:#333}
+#vc{font-size:11px;color:#555;white-space:nowrap}#vc b{color:var(--accent);font-weight:normal}
+#map{flex:1;background:#050510;position:relative}
+#map::after{content:'';position:absolute;inset:0;background:repeating-linear-gradient(0deg,transparent,transparent 2px,rgba(0,0,0,.02) 2px,rgba(0,0,0,.02) 4px);pointer-events:none;z-index:500}
+#footer{background:var(--panel);border-top:1px solid var(--border);padding:5px 14px;display:none;align-items:center;gap:10px;flex-shrink:0;font-size:11px;color:#555;flex-wrap:wrap}
+#footer b{color:var(--accent);font-weight:normal}
+.fb{background:transparent;border:1px solid #252535;color:#555;font-family:'Share Tech Mono',monospace;font-size:10px;padding:2px 8px;cursor:pointer;border-radius:2px;transition:all .2s}
+.fb:hover{border-color:var(--accent);color:var(--accent)}
+.leaflet-container{background:#080810!important}
+.leaflet-tile{filter:grayscale(100%) brightness(.35) sepia(.4) hue-rotate(200deg)}
+.leaflet-popup-content-wrapper{background:var(--panel);border:1px solid #252535;border-radius:4px;box-shadow:0 4px 24px rgba(0,0,0,.9)}
+.leaflet-popup-tip{background:var(--panel)}
+.leaflet-popup-close-button{color:#444!important}
+.leaflet-popup-close-button:hover{color:var(--accent)!important}
+.leaflet-popup-content{color:var(--text);font-family:'Share Tech Mono',monospace;font-size:12px;margin:10px 14px;min-width:155px}
+.pi{font-family:'Orbitron',monospace;font-weight:900;font-size:15px;color:var(--accent);margin-bottom:4px}
+.ps{padding:2px 7px;border-radius:2px;font-size:10px;display:inline-block;letter-spacing:1px}
+.ps.OK{background:rgba(0,255,136,.1);color:var(--ok);border:1px solid var(--ok)}
+.ps.damaged{background:rgba(255,170,0,.1);color:var(--damaged);border:1px solid var(--damaged)}
+.ps.destroyed{background:rgba(255,51,85,.1);color:var(--destroyed);border:1px solid var(--destroyed)}
+.ps.hidden{background:rgba(136,136,255,.1);color:var(--hidden);border:1px solid var(--hidden)}
+.ph{color:#666;font-size:10px;margin-top:5px;font-style:italic;line-height:1.4}
+.pa{margin-top:8px;display:flex;gap:5px}
+.pb{flex:1;background:transparent;border:1px solid #252535;color:#666;font-family:'Share Tech Mono',monospace;font-size:10px;padding:4px;cursor:pointer;border-radius:2px;text-align:center;text-decoration:none;display:block;transition:all .15s}
+.pb:hover{border-color:var(--accent);color:var(--accent)}
+.pf{border-color:var(--ok)!important;color:var(--ok)!important}
+.pf.fl{background:rgba(0,255,136,.1)!important}
+</style>
+</head>
+<body>
+<div id="splash">
+  <div id="splash-title">🕹 PARIS<span>INVADERS</span></div>
+  <div id="splash-bar-bg"><div id="splash-bar"></div></div>
+  <div id="splash-msg">CHARGEMENT</div>
+  <div id="splash-err"></div>
+</div>
+<div id="header">
+  <div id="title">🕹 PARIS<s>INVADERS</s> V4</div>
+  <div id="stats">
+    <div class="stat ok on" onclick="tf('OK')"><div class="dot"></div><span id="co">0</span> OK</div>
+    <div class="stat dm on" onclick="tf('damaged')"><div class="dot"></div><span id="cd">0</span> DMG</div>
+    <div class="stat ds on" onclick="tf('destroyed')"><div class="dot"></div><span id="cx">0</span> DEST</div>
+    <div class="stat hd on" onclick="tf('hidden')"><div class="dot"></div><span id="ch">0</span> HID</div>
+  </div>
+  <div id="right">
+    <input id="search" placeholder="PA_XXX…" oninput="si(this.value)"/>
+    <div id="vc">VIS:<b id="vn">0</b></div>
+  </div>
+</div>
+<div id="map"></div>
+<div id="footer">
+  FLASHÉ: <b id="fn">0</b>/1555
+  <button class="fb" onclick="ef()">⬇ EXPORT</button>
+  <button class="fb" onclick="ifn()">⬆ IMPORT</button>
+  <button class="fb" onclick="cf()">✕ RESET</button>
+  <span style="margin-left:auto;color:#252535;font-size:10px">GPS © pnote.eu ~10m</span>
+</div>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.4.1/dist/leaflet.markercluster.js"></script>
+<script>
+const C={OK:'#00ff88',damaged:'#ffaa00',destroyed:'#ff3355',hidden:'#8888ff'};
+let D=[],af=new Set(['OK','damaged','destroyed','hidden']),fl=new Set(JSON.parse(localStorage.getItem('piv')||'[]')),mk={};
+let map,cg;
+
+function prog(p,msg){
+  document.getElementById('splash-bar').style.width=p+'%';
+  if(msg)document.getElementById('splash-msg').textContent=msg;
+}
+function showErr(html){
+  const e=document.getElementById('splash-err');
+  e.style.display='block';e.innerHTML=html;
+  document.getElementById('splash-msg').style.display='none';
+  document.getElementById('splash-bar-bg').style.display='none';
+}
+
+async function loadData(){
+  prog(10,'CONNEXION');
+  // 3 URLs tentées successivement
+  const urls=[
+    'https://pnote.eu/projects/invaders/map/invaders.json?nocache=1',
+    'https://corsproxy.io/?'+encodeURIComponent('https://pnote.eu/projects/invaders/map/invaders.json'),
+    'https://api.allorigins.win/raw?url='+encodeURIComponent('https://pnote.eu/projects/invaders/map/invaders.json')
+  ];
+  let data=null;
+  for(const url of urls){
+    try{
+      prog(30,'TÉLÉCHARGEMENT');
+      const r=await fetch(url,{cache:'no-cache'});
+      if(!r.ok)continue;
+      data=await r.json();
+      if(data&&data.length>100)break;
+    }catch(e){continue;}
+  }
+  if(!data||!data.length){
+    showErr('⚠ Impossible de charger les données.<br><br>Ouvre ce fichier dans <b style="color:#00ffcc">Chrome</b> avec une connexion internet active.<br><br>Si le problème persiste, essaie de désactiver ton bloqueur de pub.');
+    return;
+  }
+  prog(70,'FILTRAGE PARIS');
+  D=data.filter(i=>i.id&&i.id.startsWith('PA_'));
+  prog(85,'INITIALISATION');
+  initMap();
+  prog(100,'PRÊT');
+  setTimeout(()=>{
+    const s=document.getElementById('splash');
+    s.style.opacity='0';
+    setTimeout(()=>{
+      s.style.display='none';
+      document.getElementById('header').style.display='flex';
+      document.getElementById('footer').style.display='flex';
+    },300);
+  },300);
+}
+
+function initMap(){
+  map=L.map('map',{center:[48.8566,2.3522],zoom:14});
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'© OpenStreetMap',maxZoom:19}).addTo(map);
+  cg=L.markerClusterGroup({
+    maxClusterRadius:40,showCoverageOnHover:false,spiderfyOnMaxZoom:true,
+    iconCreateFunction:c=>L.divIcon({
+      html:`<div style="background:rgba(0,255,204,.08);border:1px solid #00ffcc33;border-radius:3px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:Orbitron,monospace;font-size:9px;color:#00ffcc;font-weight:700;">${c.getChildCount()}</div>`,
+      className:'',iconSize:[28,28]
+    })
+  });
+  map.addLayer(cg);
+  const s=D.reduce((a,i)=>{a[i.status]=(a[i.status]||0)+1;return a},{});
+  document.getElementById('co').textContent=s.OK||0;
+  document.getElementById('cd').textContent=s.damaged||0;
+  document.getElementById('cx').textContent=s.destroyed||0;
+  document.getElementById('ch').textContent=s.hidden||0;
+  D.forEach(inv=>{
+    if(!inv.obf_lat||!inv.obf_lng)return;
+    const m=L.marker([inv.obf_lat,inv.obf_lng],{icon:mi(inv.status,fl.has(inv.id)),invStatus:inv.status,invId:inv.id});
+    m.bindPopup(()=>pop(inv),{minWidth:160});
+    mk[inv.id]=m;
+  });
+  rn();
+  document.getElementById('fn').textContent=fl.size;
+}
+
+function mi(st,f){
+  const c=C[st]||'#00ffcc',o=f?.2:1;
+  return L.divIcon({
+    html:`<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 16 16" opacity="${o}"><rect x="1.5" y="1.5" width="13" height="13" fill="${c}18" stroke="${c}" stroke-width="1.5"/><rect x="4" y="4" width="3" height="3" fill="${c}"/><rect x="9" y="4" width="3" height="3" fill="${c}"/><rect x="5" y="9" width="6" height="2" fill="${c}"/><rect x="3" y="7" width="1.5" height="2" fill="${c}66"/><rect x="11.5" y="7" width="1.5" height="2" fill="${c}66"/></svg>`,
+    className:'',iconSize:[16,16],iconAnchor:[8,8],popupAnchor:[0,-10]
+  });
+}
+function pop(inv){
+  const f=fl.has(inv.id);
+  return `<div><div class="pi">${inv.id}</div><div class="ps ${inv.status}">${inv.status.toUpperCase()}</div>${inv.hint?`<div class="ph">💡 ${inv.hint}</div>`:''}<div class="pa"><button class="pb pf ${f?'fl':''}" onclick="tfl('${inv.id}',this)">${f?'✓ FLASHÉ':'⚡ FLASH'}</button><a href="${inv.instagramUrl}" target="_blank" class="pb">📸 INSTA</a></div></div>`;
+}
+function rn(){
+  cg.clearLayers();let n=0;
+  Object.values(mk).forEach(m=>{if(af.has(m.options.invStatus)){cg.addLayer(m);n++;}});
+  document.getElementById('vn').textContent=n;
+}
+function tf(s){
+  af.has(s)?af.delete(s):af.add(s);
+  document.querySelectorAll('.stat').forEach(el=>{
+    const st=el.getAttribute('onclick').match(/'([^']+)'/)[1];
+    el.classList.toggle('on',af.has(st));el.classList.toggle('off',!af.has(st));
+  });
+  rn();
+}
+function si(v){
+  v=v.toUpperCase().trim();if(!v){rn();return;}
+  cg.clearLayers();let n=0;
+  Object.entries(mk).forEach(([id,m])=>{
+    if(id.includes(v)&&af.has(m.options.invStatus)){
+      cg.addLayer(m);n++;
+      if(n===1){const inv=D.find(i=>i.id===id);if(inv)map.setView([inv.obf_lat,inv.obf_lng],18);m.openPopup();}
+    }
+  });
+  document.getElementById('vn').textContent=n;
+}
+function tfl(id,btn){
+  if(fl.has(id)){fl.delete(id);btn.textContent='⚡ FLASH';btn.classList.remove('fl');}
+  else{fl.add(id);btn.textContent='✓ FLASHÉ';btn.classList.add('fl');}
+  const inv=D.find(i=>i.id===id);
+  if(inv&&mk[id])mk[id].setIcon(mi(inv.status,fl.has(id)));
+  localStorage.setItem('piv',JSON.stringify([...fl]));
+  document.getElementById('fn').textContent=fl.size;
+}
+function ef(){
+  const b=new Blob([JSON.stringify([...fl])],{type:'application/json'});
+  const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='flashed.json';a.click();
+}
+function ifn(){
+  const i=document.createElement('input');i.type='file';i.accept='.json';
+  i.onchange=e=>{
+    const r=new FileReader();
+    r.onload=ev=>{
+      try{
+        fl=new Set(JSON.parse(ev.target.result));
+        localStorage.setItem('piv',JSON.stringify([...fl]));
+        D.forEach(inv=>{if(mk[inv.id])mk[inv.id].setIcon(mi(inv.status,fl.has(inv.id)));});
+        document.getElementById('fn').textContent=fl.size;
+      }catch(e){alert('Fichier invalide');}
+    };
+    r.readAsText(e.target.files[0]);
+  };
+  i.click();
+}
+function cf(){
+  if(!confirm('Reset tous les invaders flashés ?'))return;
+  fl.clear();localStorage.setItem('piv','[]');
+  D.forEach(inv=>{if(mk[inv.id])mk[inv.id].setIcon(mi(inv.status,false));});
+  document.getElementById('fn').textContent=0;
+}
+loadData();
+</script>
+</body>
+</html>
