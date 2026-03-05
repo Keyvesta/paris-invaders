@@ -1,5 +1,5 @@
-// Service Worker - Paris Invaders V6
-const CACHE = 'paris-invaders-v6';
+// Service Worker - Paris Invaders V7
+const CACHE = 'paris-invaders-v7';
 const STATIC = [
   './',
   './index.html',
@@ -28,7 +28,7 @@ self.addEventListener('activate', e => {
 self.addEventListener('fetch', e => {
   const url = new URL(e.request.url);
   
-  // Tiles OSM : cache-first avec fallback réseau
+  // Tiles OSM : cache-first
   if (url.hostname.includes('tile.openstreetmap.org')) {
     e.respondWith(
       caches.open(CACHE + '-tiles').then(cache =>
@@ -44,17 +44,16 @@ self.addEventListener('fetch', e => {
     return;
   }
   
-  // Assets statiques : cache-first
+  // Assets statiques : network-first pour forcer les mises à jour
   e.respondWith(
-    caches.match(e.request).then(cached => {
-      if (cached) return cached;
-      return fetch(e.request).then(res => {
-        if (res.ok) {
-          const clone = res.clone();
-          caches.open(CACHE).then(c => c.put(e.request, clone));
-        }
-        return res;
-      }).catch(() => cached || new Response('', {status: 503}));
-    })
+    fetch(e.request).then(res => {
+      if (res.ok) {
+        const clone = res.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return res;
+    }).catch(() =>
+      caches.match(e.request).then(cached => cached || new Response('', {status: 503}))
+    )
   );
 });
