@@ -59,6 +59,7 @@ var D=[{"id":"PA_01","status":"destroyed","hint":null,"instagramUrl":"https://ww
 var C={OK:"#00ff88",damaged:"#ffaa00",destroyed:"#ff3355",hidden:"#8888ff"};
 var PR=150,af=new Set(["OK","damaged","destroyed","hidden"]),fl=new Set(JSON.parse(localStorage.getItem("piv")||"[]")),mk={};
 var gOn=false,gW=null,pMk=null,pCir=null,mLat=null,mLng=null,lAl=new Set();
+var notifOk=false;
 var map=L.map("map",{center:[48.8566,2.3522],zoom:14});
 L.tileLayer("https://tile.openstreetmap.org/{z}/{x}/{y}.png",{attribution:"©OSM",maxZoom:19}).addTo(map);
 var cg=L.markerClusterGroup({maxClusterRadius:40,showCoverageOnHover:false,spiderfyOnMaxZoom:true,iconCreateFunction:function(c){return L.divIcon({html:"<div style='background:rgba(0,255,204,.08);border:1px solid rgba(0,255,204,.2);border-radius:3px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:Orbitron,monospace;font-size:9px;color:#00ffcc;font-weight:700;'>"+c.getChildCount()+"</div>",className:"",iconSize:[28,28]})}});
@@ -73,6 +74,23 @@ function tf(s){if(af.has(s))af.delete(s);else af.add(s);document.querySelectorAl
 function si(v){v=v.toUpperCase().trim();if(!v){rn();return;}cg.clearLayers();var n=0;Object.keys(mk).forEach(function(id){if(id.indexOf(v)>=0&&af.has(mk[id].options.invStatus)){cg.addLayer(mk[id]);n++;if(n===1){var inv=D.find(function(i){return i.id===id;});if(inv)map.setView([inv.obf_lat,inv.obf_lng],18);mk[id].openPopup();}}});document.getElementById("vn").textContent=n;}
 function tfl(id,btn){if(fl.has(id)){fl.delete(id);btn.innerHTML="&#9889; FLASH";btn.classList.remove("fl");}else{fl.add(id);btn.innerHTML="&#10003; FLASHÉ";btn.classList.add("fl");}var inv=D.find(function(i){return i.id===id;});if(inv&&mk[id])mk[id].setIcon(mi(inv.status,fl.has(id)));localStorage.setItem("piv",JSON.stringify(Array.from(fl)));document.getElementById("fn").textContent=fl.size;}
 function hav(a,b,c,d){var R=6371000,dL=(c-a)*Math.PI/180,dG=(d-b)*Math.PI/180,x=Math.sin(dL/2)*Math.sin(dL/2)+Math.cos(a*Math.PI/180)*Math.cos(c*Math.PI/180)*Math.sin(dG/2)*Math.sin(dG/2);return R*2*Math.atan2(Math.sqrt(x),Math.sqrt(1-x));}
+
+/* ---- NOTIFICATIONS ---- */
+function reqNotif(cb){
+  if(!("Notification" in window)){cb(false);return;}
+  if(Notification.permission==="granted"){notifOk=true;cb(true);return;}
+  if(Notification.permission==="denied"){cb(false);return;}
+  Notification.requestPermission().then(function(p){notifOk=(p==="granted");cb(notifOk);});
+}
+function sendNotif(title, body, tag){
+  if(!notifOk)return;
+  try{
+    var n=new Notification(title,{body:body,tag:tag||"invader",icon:"https://keyvesta.github.io/paris-invaders/icon.png",badge:"https://keyvesta.github.io/paris-invaders/icon.png",renotify:true,vibrate:[200,80,200]});
+    n.onclick=function(){window.focus();n.close();};
+  }catch(e){}
+}
+
+/* ---- GPS ---- */
 function tgps(){if(gOn)stopG();else startG();}
 function startG(){
   if(!navigator.geolocation){document.getElementById("gi").textContent="NON SUPPORTE";return;}
@@ -80,10 +98,11 @@ function startG(){
   document.getElementById("gi").style.color="var(--acc)";
   document.getElementById("gi").textContent="GPS...";
   gOn=true;
-  /* iOS: getCurrentPosition d'abord pour déclencher le popup permission, puis watchPosition */
+  /* Demander les notifs en meme temps que le GPS - meme geste utilisateur */
+  reqNotif(function(){});
   navigator.geolocation.getCurrentPosition(
-    function(pos){ onPos(pos); gW=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,timeout:30000,maximumAge:10000}); },
-    function(err){ onErr(err); gOn=false; document.getElementById("gb").classList.remove("on"); },
+    function(pos){onPos(pos);gW=navigator.geolocation.watchPosition(onPos,onErr,{enableHighAccuracy:true,timeout:30000,maximumAge:10000});},
+    function(err){onErr(err);gOn=false;document.getElementById("gb").classList.remove("on");},
     {enableHighAccuracy:true,timeout:20000,maximumAge:0}
   );
 }
@@ -101,12 +120,36 @@ function onPos(pos){
 }
 function onErr(err){
   var msgs=["","PERMISSION REFUSEE","POSITION INDISPO","TIMEOUT"];
-  document.getElementById("gi").textContent=msgs[err.code]||"GPS ERR "+err.code;
+  document.getElementById("gi").textContent=msgs[err.code]||"ERR "+err.code;
   document.getElementById("gi").style.color="var(--dst)";
-  document.getElementById("gb").classList.remove("on");
-  gOn=false;
+  document.getElementById("gb").classList.remove("on");gOn=false;
 }
-function chkP(){if(mLat===null)return;var nb=[];D.forEach(function(inv){if(!inv.obf_lat||!inv.obf_lng||fl.has(inv.id)||!af.has(inv.status))return;var d=hav(mLat,mLng,inv.obf_lat,inv.obf_lng);if(d<=PR)nb.push({id:inv.id,dist:Math.round(d),status:inv.status,hint:inv.hint,obf_lat:inv.obf_lat,obf_lng:inv.obf_lng});});nb.sort(function(a,b){return a.dist-b.dist;});var nw=nb.filter(function(i){return !lAl.has(i.id);});if(nw.length>0){nw.forEach(function(i){lAl.add(i.id);});showAl(nb);if(navigator.vibrate)navigator.vibrate([200,80,200,80,400]);}lAl.forEach(function(id){if(!nb.find(function(i){return i.id===id;}))lAl.delete(id);});if(nb.length===0)closeAl();}
+function chkP(){
+  if(mLat===null)return;
+  var nb=[];
+  D.forEach(function(inv){
+    if(!inv.obf_lat||!inv.obf_lng||fl.has(inv.id)||!af.has(inv.status))return;
+    var d=hav(mLat,mLng,inv.obf_lat,inv.obf_lng);
+    if(d<=PR)nb.push({id:inv.id,dist:Math.round(d),status:inv.status,hint:inv.hint,obf_lat:inv.obf_lat,obf_lng:inv.obf_lng});
+  });
+  nb.sort(function(a,b){return a.dist-b.dist;});
+  var nw=nb.filter(function(i){return !lAl.has(i.id);});
+  if(nw.length>0){
+    nw.forEach(function(i){lAl.add(i.id);});
+    showAl(nb);
+    if(navigator.vibrate)navigator.vibrate([200,80,200,80,400]);
+    /* Notification push pour chaque nouvel invader */
+    nw.forEach(function(i){
+      sendNotif(
+        "⚡ " + i.id + " à " + i.dist + "m",
+        i.status.toUpperCase() + (i.hint ? " · " + i.hint : "") + " — Ouvre Paris Invaders",
+        i.id
+      );
+    });
+  }
+  lAl.forEach(function(id){if(!nb.find(function(i){return i.id===id;}))lAl.delete(id);});
+  if(nb.length===0)closeAl();
+}
 function showAl(nb){var c=nb[0],more=nb.length>1?" +"+(nb.length-1)+" autre"+(nb.length>2?"s":""):"";document.getElementById("ai").innerHTML="<b style='color:var(--ok);font-family:Orbitron,monospace'>"+c.id+"</b> &middot; <b>"+c.dist+"m</b>"+more+" &middot; "+c.status.toUpperCase()+(c.hint?" &middot; "+c.hint:"");document.getElementById("al").style.display="flex";map.setView([c.obf_lat,c.obf_lng],18);if(mk[c.id])mk[c.id].openPopup();}
 function closeAl(){document.getElementById("al").style.display="none";}
 function ef(){var b=new Blob([JSON.stringify(Array.from(fl))],{type:"application/json"});var a=document.createElement("a");a.href=URL.createObjectURL(b);a.download="flashed.json";a.click();}
