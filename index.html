@@ -140,13 +140,18 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 .ps.destroyed{background:rgba(255,51,85,.1);color:var(--destroyed);border:1px solid var(--destroyed)}
 .ps.hidden{background:rgba(136,136,255,.1);color:var(--hidden);border:1px solid var(--hidden)}
 .ph{color:#666;font-size:11px;margin-top:5px;font-style:italic;line-height:1.4}
+.p-addr{color:#555;font-size:11px;margin-top:4px;display:flex;align-items:flex-start;gap:4px;line-height:1.4}
+.p-addr-icon{flex-shrink:0;margin-top:1px}
 .pa{margin-top:8px;display:flex;gap:5px;flex-wrap:wrap}
 .pb{flex:1;background:transparent;border:1px solid #252535;color:#666;font-family:'Share Tech Mono',monospace;font-size:12px;padding:7px;cursor:pointer;border-radius:2px;text-align:center;text-decoration:none;display:block;transition:all .15s;white-space:nowrap}
 .pb:hover,.pb:active{border-color:var(--accent);color:var(--accent)}
 .pf{border-color:var(--ok)!important;color:var(--ok)!important}
 .pf.fl{background:rgba(0,255,136,.1)!important}
 .pnav{border-color:var(--accent)!important;color:var(--accent)!important}
-.my-dot{width:18px;height:18px;border-radius:50%;background:var(--accent);border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px rgba(0,255,204,.25),0 0 12px rgba(0,255,204,.4)}
+.my-dot{width:28px;height:28px;position:relative;display:flex;align-items:center;justify-content:center}
+.my-dot-circle{width:14px;height:14px;border-radius:50%;background:var(--accent);border:2px solid rgba(255,255,255,.9);box-shadow:0 0 0 4px rgba(0,255,204,.25),0 0 12px rgba(0,255,204,.4);position:absolute}
+.my-dot-arrow{position:absolute;top:0;left:50%;transform:translateX(-50%) rotate(0deg);transform-origin:50% 14px;transition:transform .4s ease;opacity:0}
+.my-dot-arrow svg{display:block}
 .route-line{stroke:rgba(0,255,204,.5);stroke-width:2;stroke-dasharray:6,4;fill:none}
 /* LISTE PANEL */
 #list-panel{position:fixed;top:0;left:0;right:0;bottom:0;z-index:9990;background:var(--bg);display:none;flex-direction:column}
@@ -536,22 +541,56 @@ function pop(inv){
   const arr=getArr(inv.id);
   const navUrl=`https://maps.apple.com/?daddr=${inv.obf_lat},${inv.obf_lng}&dirflg=w`;
   const gmUrl=`https://www.google.com/maps/dir/?api=1&destination=${inv.obf_lat},${inv.obf_lng}&travelmode=walking`;
+  const addrId=`addr-${inv.id.replace(/[^a-z0-9]/gi,'_')}`;
+  // Fetch address async
+  setTimeout(()=>fetchAddr(inv.obf_lat,inv.obf_lng,addrId),100);
   return `<div>
     <div class="pi">${inv.id}</div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
       <div class="ps ${inv.status}">${inv.status.toUpperCase()}</div>
       ${arr?`<div style="font-size:9px;color:#555">${arr}e arr.</div>`:''}
     </div>
+    <div class="p-addr" id="${addrId}"><span class="p-addr-icon">📍</span><span style="color:#333">chargement…</span></div>
     ${inv.hint?`<div class="ph">💡 ${inv.hint}</div>`:''}
     <div class="pa">
       <button class="pb pf ${f?'fl':''}" onclick="tfl('${inv.id}',this)">${f?'✓ FLASHÉ':'⚡ FLASH'}</button>
-      <a href="${inv.instagramUrl}" target="_blank" class="pb">📸 INSTA</a>
+      ${inv.instagramUrl?`<a href="${inv.instagramUrl}" target="_blank" class="pb">📸 INSTA</a>`:''}
     </div>
     <div class="pa">
       <a href="${navUrl}" target="_blank" class="pb pnav">🗺 APPLE</a>
       <a href="${gmUrl}" target="_blank" class="pb pnav">📍 GMAPS</a>
     </div>
   </div>`;
+}
+
+// Cache d'adresses pour éviter les appels répétés
+const addrCache={};
+function fetchAddr(lat,lng,targetId){
+  const key=`${lat.toFixed(5)},${lng.toFixed(5)}`;
+  const el=document.getElementById(targetId);
+  if(!el)return;
+  if(addrCache[key]){
+    el.innerHTML=`<span class="p-addr-icon">📍</span><span>${addrCache[key]}</span>`;
+    return;
+  }
+  fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&addressdetails=1`,{
+    headers:{'Accept-Language':'fr','User-Agent':'ParisinvadersApp/1.0'}
+  })
+  .then(r=>r.json())
+  .then(data=>{
+    const a=data.address||{};
+    const street=[a.house_number,a.road||a.pedestrian||a.footway||a.path].filter(Boolean).join(' ');
+    const city=a.city_district||a.suburb||a.quarter||'';
+    const addr=street||(data.display_name?.split(',').slice(0,2).join(', '))||'Adresse inconnue';
+    const full=city?`${addr} (${city})`:addr;
+    addrCache[key]=full;
+    const el2=document.getElementById(targetId);
+    if(el2) el2.innerHTML=`<span class="p-addr-icon">📍</span><span style="color:#aaa">${full}</span>`;
+  })
+  .catch(()=>{
+    const el2=document.getElementById(targetId);
+    if(el2) el2.innerHTML='';
+  });
 }
 
 function getArr(id){
@@ -650,6 +689,7 @@ function startGps(){
     onPos(pos);
     gpsWatch=navigator.geolocation.watchPosition(onPos,onGpsErr,{enableHighAccuracy:true,timeout:30000,maximumAge:10000});
     gpsOn=true;
+    startOrientation();
   },onGpsErr,{enableHighAccuracy:true,timeout:20000,maximumAge:0});
 }
 
@@ -671,11 +711,15 @@ function onPos(pos){
   document.getElementById('gps-info').style.color=acc<30?'var(--ok)':acc<80?'var(--damaged)':'var(--destroyed)';
   if(!posMk){
     posMk=L.marker([myLat,myLng],{
-      icon:L.divIcon({html:'<div class="my-dot"></div>',className:'',iconSize:[18,18],iconAnchor:[9,9]}),
+      icon:L.divIcon({html:'<div class="my-dot"><div class="my-dot-arrow" id="gps-arrow"><svg width="12" height="12" viewBox="0 0 12 12"><polygon points="6,0 10,10 6,7 2,10" fill="#00ffcc" stroke="rgba(255,255,255,.6)" stroke-width=".5"/></svg></div><div class="my-dot-circle"></div></div>',className:'',iconSize:[28,28],iconAnchor:[14,14]}),
       zIndexOffset:1000
     }).addTo(map);
     map.setView([myLat,myLng],17);
   }else{posMk.setLatLng([myLat,myLng]);}
+  // Heading depuis GPS si disponible
+  if(pos.coords.heading!=null && !isNaN(pos.coords.heading)){
+    setArrowHeading(pos.coords.heading);
+  }
   if(!proxCircle){
     proxCircle=L.circle([myLat,myLng],{radius:PROX,color:'rgba(0,255,204,.4)',weight:1,fillOpacity:.04,dashArray:'5,8'}).addTo(map);
   }else{
@@ -684,6 +728,41 @@ function onPos(pos){
   }
   checkProximity();
   if(radarOpen)updateRadarList();
+}
+
+function setArrowHeading(deg){
+  const arrow=document.getElementById('gps-arrow');
+  if(!arrow)return;
+  arrow.style.opacity='1';
+  arrow.style.transform=`translateX(-50%) rotate(${deg}deg)`;
+}
+
+// Device orientation (boussole) — priorité sur le heading GPS
+let orientationListening=false;
+function startOrientation(){
+  if(orientationListening)return;
+  // iOS 13+ nécessite une permission explicite
+  if(typeof DeviceOrientationEvent!=='undefined' && typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(state=>{
+      if(state==='granted') listenOrientation();
+    }).catch(()=>{});
+  } else {
+    listenOrientation();
+  }
+}
+function listenOrientation(){
+  orientationListening=true;
+  window.addEventListener('deviceorientationabsolute', onOrientation, true);
+  window.addEventListener('deviceorientation', onOrientation, true);
+}
+function onOrientation(e){
+  let heading=null;
+  if(e.absolute && e.alpha!=null){
+    heading=(360-e.alpha)%360; // alpha=0 → nord, on inverse
+  } else if(e.webkitCompassHeading!=null){
+    heading=e.webkitCompassHeading; // iOS
+  }
+  if(heading!=null) setArrowHeading(heading);
 }
 
 function onGpsErr(e){
