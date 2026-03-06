@@ -1237,7 +1237,7 @@ function cf(){
 if('serviceWorker' in navigator){
   // Force unregister all old SWs, then register fresh
   navigator.serviceWorker.getRegistrations().then(regs => {
-    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v7'));
+    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v8'));
     if(old.length > 0){
       Promise.all(old.map(r => r.unregister())).then(() => {
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
@@ -1245,7 +1245,7 @@ if('serviceWorker' in navigator){
         });
       });
     } else {
-      navigator.serviceWorker.register('./sw.js?v7').catch(e=>console.log('SW error:',e));
+      navigator.serviceWorker.register('./sw.js?v8').catch(e=>console.log('SW error:',e));
     }
   });
 }
