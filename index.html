@@ -264,6 +264,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <button class="hbtn" id="list-btn" onclick="showList()" title="Vue liste">☰</button>
     <button class="hbtn" id="choro-btn" onclick="toggleChoro()" title="Carte chaleur arrondissements">🌡</button>
     <button class="hbtn" id="gps-btn" onclick="toggleGps()" title="Géolocalisation">📍</button>
+    <button class="hbtn" id="notif-btn" onclick="toggleNotif()" title="Notifications proximité">🔔</button>
   </div>
 </div>
 
@@ -779,6 +780,7 @@ function checkProximity(){
     newOnes.forEach(i=>lastAlerted.add(i.id));
     alertInv=nearby[0];
     showAlert(nearby);
+    showProximityNotif(nearby);
     if(navigator.vibrate)navigator.vibrate([200,80,200,80,400]);
   }
   lastAlerted.forEach(id=>{if(!nearby.find(i=>i.id===id))lastAlerted.delete(id);});
@@ -1237,7 +1239,7 @@ function cf(){
 if('serviceWorker' in navigator){
   // Force unregister all old SWs, then register fresh
   navigator.serviceWorker.getRegistrations().then(regs => {
-    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v8'));
+    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v9'));
     if(old.length > 0){
       Promise.all(old.map(r => r.unregister())).then(() => {
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
@@ -1245,7 +1247,7 @@ if('serviceWorker' in navigator){
         });
       });
     } else {
-      navigator.serviceWorker.register('./sw.js?v8').catch(e=>console.log('SW error:',e));
+      navigator.serviceWorker.register('./sw.js?v9').catch(e=>console.log('SW error:',e));
     }
   });
 }
