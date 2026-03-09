@@ -265,6 +265,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <button class="hbtn" id="choro-btn" onclick="toggleChoro()" title="Carte chaleur arrondissements">🌡</button>
     <button class="hbtn" id="gps-btn" onclick="toggleGps()" title="Géolocalisation">📍</button>
     <button class="hbtn" id="notif-btn" onclick="toggleNotif()" title="Notifications proximité">🔔</button>
+    <button class="hbtn" id="ntfy-btn" onclick="toggleNtfy()" title="Notifications background (ntfy)">📡</button>
   </div>
 </div>
 
@@ -289,6 +290,26 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <button class="fb" style="margin-left:8px" onclick="toggleRadar()">✕</button>
   </div>
   <div id="radar-list"></div>
+</div>
+
+
+<!-- NTFY PANEL -->
+<div id="ntfy-panel" style="position:fixed;bottom:48px;left:8px;z-index:9001;background:var(--panel);border:1px solid var(--border);border-radius:4px;padding:12px 14px;display:none;width:260px;font-size:12px">
+  <div style="font-family:'Orbitron',monospace;font-size:12px;color:var(--accent);margin-bottom:10px">📡 NOTIF BACKGROUND</div>
+  <div style="color:#555;margin-bottom:8px;line-height:1.5">
+    1. Installe <b style="color:#aaa">ntfy</b> sur l'App Store<br>
+    2. Abonne-toi au topic ci-dessous<br>
+    3. Active les notifs dans ntfy
+  </div>
+  <div style="display:flex;gap:6px;margin-bottom:8px;align-items:center">
+    <input id="ntfy-topic" placeholder="mon-topic-unique" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);font-family:'Share Tech Mono',monospace;font-size:11px;padding:6px 8px;border-radius:3px;outline:none"/>
+    <button onclick="ntfyCopyTopic()" style="background:transparent;border:1px solid #252535;color:#555;font-size:13px;padding:5px 8px;cursor:pointer;border-radius:2px;font-family:'Share Tech Mono',monospace">📋</button>
+  </div>
+  <div style="display:flex;gap:6px">
+    <button onclick="ntfyTest()" style="flex:1;background:transparent;border:1px solid var(--accent);color:var(--accent);font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px;cursor:pointer;border-radius:3px">⚡ TEST</button>
+    <button onclick="ntfySave()" style="flex:1;background:transparent;border:1px solid var(--ok);color:var(--ok);font-family:'Share Tech Mono',monospace;font-size:11px;padding:7px;cursor:pointer;border-radius:3px">✓ ACTIVER</button>
+  </div>
+  <div id="ntfy-status" style="margin-top:8px;font-size:11px;color:#333;text-align:center"></div>
 </div>
 
 <!-- RANDO PANEL -->
@@ -781,6 +802,7 @@ function checkProximity(){
     alertInv=nearby[0];
     showAlert(nearby);
     showProximityNotif(nearby);
+    sendNtfyProximity(nearby);
     if(navigator.vibrate)navigator.vibrate([200,80,200,80,400]);
   }
   lastAlerted.forEach(id=>{if(!nearby.find(i=>i.id===id))lastAlerted.delete(id);});
@@ -1239,7 +1261,7 @@ function cf(){
 if('serviceWorker' in navigator){
   // Force unregister all old SWs, then register fresh
   navigator.serviceWorker.getRegistrations().then(regs => {
-    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v10'));
+    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v11'));
     if(old.length > 0){
       Promise.all(old.map(r => r.unregister())).then(() => {
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
@@ -1247,7 +1269,7 @@ if('serviceWorker' in navigator){
         });
       });
     } else {
-      navigator.serviceWorker.register('./sw.js?v10').catch(e=>console.log('SW error:',e));
+      navigator.serviceWorker.register('./sw.js?v11').catch(e=>console.log('SW error:',e));
     }
   });
 }
