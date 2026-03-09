@@ -295,8 +295,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 <div id="rando-panel">
   <div id="rando-title">🗺 RANDO OPTIMISÉE</div>
   <div id="rando-config">
-    <label>Nb invaders: <input type="range" id="rando-n" min="3" max="20" step="1" value="8" oninput="document.getElementById('rando-n-val').textContent=this.value"><span id="rando-n-val">8</span></label>
-    <label>Rayon max: <input type="range" id="rando-r" min="200" max="2000" step="100" value="800" oninput="document.getElementById('rando-r-val').textContent=this.value+'m'"><span id="rando-r-val">800m</span></label>
+    <label>Nb invaders: <input type="range" id="rando-n" min="5" max="100" step="5" value="10" oninput="document.getElementById('rando-n-val').textContent=this.value"><span id="rando-n-val">10</span></label>
+    <label>Rayon max: <input type="range" id="rando-r" min="500" max="20000" step="500" value="2000" oninput="document.getElementById('rando-r-val').textContent=this.value>=1000?(this.value/1000).toFixed(1)+'km':this.value+'m'"><span id="rando-r-val">2km</span></label>
   </div>
   <button id="rando-start" onclick="calcRando()">⚡ CALCULER ITINÉRAIRE</button>
   <div id="rando-route"></div>
@@ -1239,7 +1239,7 @@ function cf(){
 if('serviceWorker' in navigator){
   // Force unregister all old SWs, then register fresh
   navigator.serviceWorker.getRegistrations().then(regs => {
-    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v9'));
+    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v10'));
     if(old.length > 0){
       Promise.all(old.map(r => r.unregister())).then(() => {
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
@@ -1247,7 +1247,7 @@ if('serviceWorker' in navigator){
         });
       });
     } else {
-      navigator.serviceWorker.register('./sw.js?v9').catch(e=>console.log('SW error:',e));
+      navigator.serviceWorker.register('./sw.js?v10').catch(e=>console.log('SW error:',e));
     }
   });
 }
