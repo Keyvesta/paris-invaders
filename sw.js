@@ -1,5 +1,5 @@
-// Service Worker - Paris Invaders V9
-const CACHE = 'paris-invaders-v9';
+// Service Worker - Paris Invaders V10
+const CACHE = 'paris-invaders-v10';
 const STATIC = [
   './',
   './index.html',
