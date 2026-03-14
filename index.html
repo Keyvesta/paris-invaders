@@ -1259,18 +1259,22 @@ function cf(){
 
 // ── SERVICE WORKER ────────────────────────────────────────────────────────
 if('serviceWorker' in navigator){
-  // Force unregister all old SWs, then register fresh
+  // Unregister ALL SWs outside /paris-invaders/ scope, then register with explicit scope
   navigator.serviceWorker.getRegistrations().then(regs => {
-    const old = regs.filter(r => !r.active?.scriptURL?.includes('sw.js?v11'));
-    if(old.length > 0){
-      Promise.all(old.map(r => r.unregister())).then(() => {
-        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k)))).then(() => {
-          window.location.reload();
-        });
-      });
-    } else {
-      navigator.serviceWorker.register('./sw.js?v11').catch(e=>console.log('SW error:',e));
-    }
+    const toKill = regs.filter(r => {
+      const url = r.active?.scriptURL || r.installing?.scriptURL || '';
+      // Kill any SW not scoped to paris-invaders
+      return !url.includes('/paris-invaders/sw.js');
+    });
+    Promise.all(toKill.map(r => r.unregister())).then(() => {
+      if(toKill.length > 0){
+        caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
+      }
+      // Register with explicit scope to prevent takeover of other repos
+      navigator.serviceWorker.register('/paris-invaders/sw.js?v12', {
+        scope: '/paris-invaders/'
+      }).catch(e => console.log('SW error:', e));
+    });
   });
 }
 
