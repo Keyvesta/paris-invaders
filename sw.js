@@ -1,5 +1,5 @@
-// Service Worker - Paris Invaders V11
-const CACHE = 'paris-invaders-v11';
+// Service Worker - Paris Invaders V7
+const CACHE = 'paris-invaders-v7';
 const STATIC = [
   './',
   './index.html',
@@ -55,33 +55,5 @@ self.addEventListener('fetch', e => {
     }).catch(() =>
       caches.match(e.request).then(cached => cached || new Response('', {status: 503}))
     )
-  );
-});
-
-// ── PUSH NOTIFICATIONS ──────────────────────────────
-self.addEventListener('push', e => {
-  let data = { title: '👾 Invader proche !', body: '', tag: 'proximity', url: './' };
-  try { data = { ...data, ...e.data.json() }; } catch(err) {}
-  e.waitUntil(
-    self.registration.showNotification(data.title, {
-      body: data.body,
-      icon: './icon-192.png',
-      badge: './icon-192.png',
-      tag: data.tag,
-      renotify: true,
-      data: { url: data.url }
-    })
-  );
-});
-
-self.addEventListener('notificationclick', e => {
-  e.notification.close();
-  const url = e.notification.data?.url || './';
-  e.waitUntil(
-    clients.matchAll({ type: 'window', includeUncontrolled: true }).then(list => {
-      const existing = list.find(c => c.url.includes('paris-invaders'));
-      if (existing) { existing.focus(); existing.postMessage({ type: 'NOTIF_CLICK', url }); }
-      else clients.openWindow(url);
-    })
   );
 });
