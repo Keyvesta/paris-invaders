@@ -386,8 +386,7 @@ const map=L.map('map',{center:[48.8566,2.3522],zoom:14});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'©OSM',maxZoom:19}).addTo(map);
 const cg=L.markerClusterGroup({
   maxClusterRadius:40,showCoverageOnHover:false,spiderfyOnMaxZoom:true,
-  iconCreateFunction:c=>L.divIcon({
-    html:`<div style="background:rgba(0,255,204,.08);border:1px solid rgba(0,255,204,.2);border-radius:3px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;font-family:Orbitron,monospace;font-size:9px;color:#00ffcc;font-weight:700;">${c.getChildCount()}</div>`,
+  iconCreateFunction:c=>L.divIcon({html:`<div style="background:rgba(0,255,204,.08);border:1px solid rgba(0,255,204,.2);border-radius:3px;width:28px;height:28px;display:flex;align-items:center;justify-content:center;">` + '<div style="width:8px;height:8px;border-radius:50%;background:#00ffcc;opacity:.7"></div>' + `</div>`,
     className:'',iconSize:[28,28]
   })
 });
