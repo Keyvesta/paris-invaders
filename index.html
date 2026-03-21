@@ -386,16 +386,20 @@ const map=L.map('map',{center:[48.8566,2.3522],zoom:14});
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'©OSM',maxZoom:19}).addTo(map);
 const cg=L.markerClusterGroup({
   maxClusterRadius:40,showCoverageOnHover:false,spiderfyOnMaxZoom:true,
-  iconCreateFunction:c=>{
-    const markers=c.getAllChildMarkers();
-    const unflashed=markers.filter(m=>!fl.has(m.options.invId));
+  iconCreateFunction:function(cluster){
+    var markers=cluster.getAllChildMarkers();
+    var unflashed=markers.filter(function(m){return !fl.has(m.options.invId);});
     if(unflashed.length===0) return L.divIcon({html:'',className:'',iconSize:[0,0]});
-    // Couleur dominante parmi les non-flashés
-    const statuses=unflashed.map(m=>m.options.invStatus);
-    const dominant=statuses.sort((a,b)=>statuses.filter(s=>s===b).length-statuses.filter(s=>s===a).length)[0];
-    const col=C[dominant]||'#00ffcc';
-    return L.divIcon({html:`<div style="background:${col}22;border:1px solid ${col}66;border-radius:3px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;"><div style="width:7px;height:7px;border-radius:50%;background:${col};opacity:.9"></div></div>`,
-    className:'',iconSize:[22,22]});},};
+    var statuses=unflashed.map(function(m){return m.options.invStatus;});
+    var cnt={};statuses.forEach(function(s){cnt[s]=(cnt[s]||0)+1;});
+    var dominant=Object.keys(cnt).sort(function(a,b){return cnt[b]-cnt[a];})[0];
+    var col=C[dominant]||'#00ffcc';
+    return L.divIcon({
+      html:'<div style="background:'+col+'22;border:1px solid '+col+'66;border-radius:3px;width:22px;height:22px;display:flex;align-items:center;justify-content:center;"><div style="width:7px;height:7px;border-radius:50%;background:'+col+';opacity:.9"></div></div>',
+      className:'',iconSize:[22,22]
+    });
+  }
+});
 map.addLayer(cg);
 
 // ── SPLASH + LOAD DATA ─────────────────────────────────────────────────
@@ -1276,7 +1280,7 @@ if('serviceWorker' in navigator){
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
       }
       // Register with explicit scope to prevent takeover of other repos
-      navigator.serviceWorker.register('/paris-invaders/sw.js?v13', {
+      navigator.serviceWorker.register('/paris-invaders/sw.js?v14', {
         scope: '/paris-invaders/'
       }).catch(e => console.log('SW error:', e));
     });
