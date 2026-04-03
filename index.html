@@ -549,8 +549,17 @@ async function loadData(){
 // ── MARKERS ─────────────────────────────────────────────────────────────
 function mi(st,f,isNew){
   const c=C[st]||'#00ffcc',o=f?0.08:1;
+  const badge=isNew?'<div style="position:absolute;top:-5px;right:-5px;font-size:9px;z-index:2;filter:drop-shadow(0 0 2px gold)">&#x2728;</div>':'';
+  const svg='<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16" opacity="'+o+'">'
+    +'<rect x="1.5" y="1.5" width="13" height="13" fill="'+c+'18" stroke="'+c+'" stroke-width="1.5"/>'
+    +'<rect x="4" y="4" width="3" height="3" fill="'+c+'"/>'
+    +'<rect x="9" y="4" width="3" height="3" fill="'+c+'"/>'
+    +'<rect x="5" y="9" width="6" height="2" fill="'+c+'"/>'
+    +'<rect x="3" y="7" width="1.5" height="2" fill="'+c+'66"/>'
+    +'<rect x="11.5" y="7" width="1.5" height="2" fill="'+c+'66"/>'
+    +'</svg>';
   return L.divIcon({
-    html:(isNew?'<div class="new-badge">✨</div>':'')+'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16" opacity="'+o+'"><rect x="1.5" y="1.5" width="13" height="13" fill="${c}18" stroke="${c}" stroke-width="1.5"/><rect x="4" y="4" width="3" height="3" fill="${c}"/><rect x="9" y="4" width="3" height="3" fill="${c}"/><rect x="5" y="9" width="6" height="2" fill="${c}"/><rect x="3" y="7" width="1.5" height="2" fill="${c}66"/><rect x="11.5" y="7" width="1.5" height="2" fill="${c}66"/></svg>`,
+    html:'<div style="position:relative;width:22px;height:22px;">'+badge+svg+'</div>',
     className:'',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-13]
   });
 }
@@ -1284,7 +1293,7 @@ if('serviceWorker' in navigator){
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
       }
       // Register with explicit scope to prevent takeover of other repos
-      navigator.serviceWorker.register('/paris-invaders/sw.js?v15', {
+      navigator.serviceWorker.register('/paris-invaders/sw.js?v16', {
         scope: '/paris-invaders/'
       }).catch(e => console.log('SW error:', e));
     });
