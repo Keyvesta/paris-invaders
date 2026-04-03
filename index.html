@@ -193,6 +193,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
 #list-arr-row{display:flex;gap:5px;padding:6px 16px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch}
 .la-chip{background:transparent;border:1px solid #1a1a2e;color:#333;font-family:'Share Tech Mono',monospace;font-size:11px;padding:3px 8px;cursor:pointer;border-radius:12px;white-space:nowrap;transition:all .15s;flex-shrink:0}
 .la-chip.active{border-color:var(--accent);color:var(--accent);background:rgba(0,255,204,.07)}
+
+.new-badge{position:absolute;top:-4px;right:-4px;font-size:8px;line-height:1;z-index:1;pointer-events:none;filter:drop-shadow(0 0 3px rgba(255,220,0,.8))}
+.marker-new{filter:drop-shadow(0 0 4px rgba(255,220,50,.6))}
 </style>
 </head>
 <body>
@@ -337,6 +340,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:20px;heigh
     <button class="lf-btn f-hd active" data-st="hidden" onclick="toggleListFilter(this)">? HID</button>
     <button class="lf-btn active" id="lf-nonflash" onclick="toggleListFlashed(this)">⚡ NON FLASHÉS</button>
     <button class="lf-btn" id="lf-flash" onclick="toggleListFlashedOnly(this)">✓ FLASHÉS</button>
+    <button class="lf-btn" id="lf-new" onclick="toggleListNew(this)">✨ NOUVEAUX</button>
   </div>
   <div id="list-arr-row"></div>
   <div id="list-search-row">
@@ -543,10 +547,10 @@ async function loadData(){
 }
 
 // ── MARKERS ─────────────────────────────────────────────────────────────
-function mi(st,f){
+function mi(st,f,isNew){
   const c=C[st]||'#00ffcc',o=f?0.08:1;
   return L.divIcon({
-    html:`<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16" opacity="${o}"><rect x="1.5" y="1.5" width="13" height="13" fill="${c}18" stroke="${c}" stroke-width="1.5"/><rect x="4" y="4" width="3" height="3" fill="${c}"/><rect x="9" y="4" width="3" height="3" fill="${c}"/><rect x="5" y="9" width="6" height="2" fill="${c}"/><rect x="3" y="7" width="1.5" height="2" fill="${c}66"/><rect x="11.5" y="7" width="1.5" height="2" fill="${c}66"/></svg>`,
+    html:(isNew?'<div class="new-badge">✨</div>':'')+'<svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" viewBox="0 0 16 16" opacity="'+o+'"><rect x="1.5" y="1.5" width="13" height="13" fill="${c}18" stroke="${c}" stroke-width="1.5"/><rect x="4" y="4" width="3" height="3" fill="${c}"/><rect x="9" y="4" width="3" height="3" fill="${c}"/><rect x="5" y="9" width="6" height="2" fill="${c}"/><rect x="3" y="7" width="1.5" height="2" fill="${c}66"/><rect x="11.5" y="7" width="1.5" height="2" fill="${c}66"/></svg>`,
     className:'',iconSize:[22,22],iconAnchor:[11,11],popupAnchor:[0,-13]
   });
 }
@@ -559,7 +563,7 @@ function initMarkers(){
   document.getElementById('ch').textContent=s.hidden||0;
   D.forEach(inv=>{
     if(!inv.obf_lat||!inv.obf_lng)return;
-    const m=L.marker([inv.obf_lat,inv.obf_lng],{icon:mi(inv.status,fl.has(inv.id)),invStatus:inv.status,invId:inv.id});
+    const m=L.marker([inv.obf_lat,inv.obf_lng],{icon:mi(inv.status,fl.has(inv.id),inv.is_new),invStatus:inv.status,invId:inv.id});
     m.bindPopup(()=>pop(inv),{minWidth:170});
     mk[inv.id]=m;
   });
@@ -576,7 +580,7 @@ function pop(inv){
   // Fetch address async
   setTimeout(()=>fetchAddr(inv.obf_lat,inv.obf_lng,addrId),100);
   return `<div>
-    <div class="pi">${inv.id}</div>
+    <div class="pi">${inv.id}${inv.is_new?" ✨":""}</div>
     <div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">
       <div class="ps ${inv.status}">${inv.status.toUpperCase()}</div>
       ${arr?`<div style="font-size:9px;color:#555">${arr}e arr.</div>`:''}
@@ -1280,7 +1284,7 @@ if('serviceWorker' in navigator){
         caches.keys().then(keys => Promise.all(keys.map(k => caches.delete(k))));
       }
       // Register with explicit scope to prevent takeover of other repos
-      navigator.serviceWorker.register('/paris-invaders/sw.js?v14', {
+      navigator.serviceWorker.register('/paris-invaders/sw.js?v15', {
         scope: '/paris-invaders/'
       }).catch(e => console.log('SW error:', e));
     });
