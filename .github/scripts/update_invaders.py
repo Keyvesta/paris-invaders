@@ -1,69 +1,104 @@
 #!/usr/bin/env python3
-import json,re,time,math,random,datetime
-import requests
-from bs4 import BeautifulSoup
+"""
+Auto-update data.json depuis pnote.eu/projects/invaders/map/invaders.json
+Source de verite : coords + statuts (OK/damaged/destroyed/hidden)
+Tourne chaque lundi via GitHub Actions.
+"""
+import json, math, random, datetime, sys
+import urllib.request
 
-DATA_FILE='data.json'
-BASE='https://www.invader-spotter.art'
-STATUS={'ok':'OK','damaged':'damaged','destroyed':'destroyed','hidden':'hidden'}
+PNOTE_URL = 'https://pnote.eu/projects/invaders/map/invaders.json?nocache=1'
+DATA_FILE = 'data.json'
+TODAY = datetime.date.today().isoformat()
+NEW_BADGE_DAYS = 30
 
-def obf(lat,lng,r=8):
-    random.seed(int((lat+lng)*1e6))
-    return round(lat+random.uniform(-r,r)/111320,6),round(lng+random.uniform(-r,r)/(111320*math.cos(math.radians(lat))),6)
-
-def fetch_list():
-    res=requests.get(f'{BASE}/ville.php?ville=paris',timeout=15,headers={'User-Agent':'ParisinvadersApp/1.0'})
-    soup=BeautifulSoup(res.text,'html.parser')
-    out=[]
-    for row in soup.select('tr'):
-        cells=row.find_all('td')
-        if not cells:continue
-        id_=cells[0].get_text(strip=True)
-        if not re.match(r'PA_\d+',id_):continue
-        st=STATUS.get(cells[1].get_text(strip=True).lower() if len(cells)>1 else 'ok','OK')
-        pts=int(re.search(r'\d+',cells[2].get_text(strip=True)).group()) if len(cells)>2 and re.search(r'\d+',cells[2].get_text(strip=True)) else 10
-        out.append({'id':id_,'status':st,'points':pts})
-    return out
-
-def fetch_coords(inv_id):
-    try:
-        r=requests.get(f'{BASE}/invader.php?id={inv_id}',timeout=10,headers={'User-Agent':'ParisinvadersApp/1.0'})
-        lat=re.search(r'lat[":\s=]+(-?\d+\.\d+)',r.text)
-        lng=re.search(r'l(?:ng|on)[":\s=]+(-?\d+\.\d+)',r.text)
-        if lat and lng:return float(lat.group(1)),float(lng.group(1))
-    except:pass
-    return None,None
+def fetch_pnote():
+    req = urllib.request.Request(PNOTE_URL, headers={'User-Agent': 'ParisinvadersApp/1.0'})
+    with urllib.request.urlopen(req, timeout=30) as r:
+        data = json.loads(r.read())
+    paris = [d for d in data if d.get('id', '').startswith('PA_')]
+    print(f'pnote.eu: {len(paris)} invaders Paris')
+    return paris
 
 def main():
-    with open(DATA_FILE) as f:data=json.load(f)
-    existing={d['id']:d for d in data}
-    today=datetime.date.today().isoformat()
-    changes=0
+    # Charger notre data actuel
+    with open(DATA_FILE) as f:
+        our_data = json.load(f)
+    our_map = {d['id']: d for d in our_data}
+    print(f'data.json actuel: {len(our_data)} invaders')
+
+    # Fetch pnote
     try:
-        remote=fetch_list()
-        print(f'{len(remote)} invaders sur invader-spotter')
-        for r in remote:
-            if r['id'] in existing:
-                if existing[r['id']].get('status')!=r['status']:
-                    existing[r['id']]['status']=r['status'];changes+=1;print(f"Status {r['id']}: {r['status']}")
-            else:
-                lat,lng=fetch_coords(r['id'])
-                if lat and lng:
-                    ola,oln=obf(lat,lng)
-                    existing[r['id']]={'id':r['id'],'status':r['status'],'points':r['points'],'obf_lat':ola,'obf_lng':oln,'added':today,'is_new':True}
-                    changes+=1;print(f"Nouveau {r['id']}")
-                time.sleep(0.5)
-    except Exception as e:print(f'Erreur:{e}')
-    for d in existing.values():
+        pnote = fetch_pnote()
+    except Exception as e:
+        print(f'Erreur fetch pnote: {e}')
+        sys.exit(0)  # Pas d erreur bloquante, on garde l existant
+
+    pnote_map = {d['id']: d for d in pnote}
+    changes = 0
+    merged = []
+
+    # Pour chaque invader pnote (source de verite coords + statuts)
+    for p in pnote:
+        ours = our_map.get(p['id'], {})
+        entry = {
+            'id': p['id'],
+            'status': p['status'],
+            'obf_lat': p['obf_lat'],
+            'obf_lng': p['obf_lng'],
+        }
+        # Hint : pnote ou le notre
+        hint = p.get('hint') or ours.get('hint')
+        if hint: entry['hint'] = hint
+        # Instagram
+        ig = p.get('instagramUrl') or ours.get('instagramUrl')
+        if ig: entry['instagramUrl'] = ig
+        # Points (pnote n a pas les points)
+        if ours.get('points'): entry['points'] = ours['points']
+        # Badge nouveau
+        if ours.get('is_new'): entry['is_new'] = ours['is_new']
+        if ours.get('added'): entry['added'] = ours['added']
+
+        # Tracker les changements
+        if ours:
+            if ours.get('status') != p['status']:
+                print(f"  Status: {p['id']} {ours.get('status')} -> {p['status']}")
+                changes += 1
+            if abs((ours.get('obf_lat') or 0) - p['obf_lat']) > 0.0001:
+                changes += 1
+        else:
+            print(f"  Nouveau: {p['id']}")
+            entry['added'] = TODAY
+            entry['is_new'] = True
+            changes += 1
+
+        merged.append(entry)
+
+    # Garder nos invaders absents de pnote (ex: PA_1562-1568)
+    for d in our_data:
+        if d['id'] not in pnote_map:
+            merged.append(d)
+            print(f"  Preserve (absent pnote): {d['id']}")
+
+    # Expirer badge nouveau apres 30 jours
+    for d in merged:
         if d.get('is_new') and d.get('added'):
             try:
-                if (datetime.date.today()-datetime.date.fromisoformat(d['added'])).days>30:
-                    d['is_new']=False;changes+=1
-            except:pass
-    if changes:
-        out=sorted(existing.values(),key=lambda d:int(d['id'].replace('PA_','')) if d['id'].startswith('PA_') and d['id'].replace('PA_','').isdigit() else 9999)
-        with open(DATA_FILE,'w') as f:json.dump(out,f,ensure_ascii=False,separators=(',',':'))
-        print(f'{changes} changements sauvegardés')
-    else:print('Aucun changement')
+                added = datetime.date.fromisoformat(d['added'])
+                if (datetime.date.today() - added).days > NEW_BADGE_DAYS:
+                    d['is_new'] = False
+                    changes += 1
+            except: pass
 
-if __name__=='__main__':main()
+    # Trier par ID numerique
+    merged.sort(key=lambda d: int(d['id'].replace('PA_', '')) if d['id'].startswith('PA_') and d['id'].replace('PA_', '').isdigit() else 9999)
+
+    if changes:
+        with open(DATA_FILE, 'w') as f:
+            json.dump(merged, f, ensure_ascii=False, separators=(',', ':'))
+        print(f'\n{changes} changements sauvegardes. Total: {len(merged)} invaders.')
+    else:
+        print('Aucun changement detecte.')
+
+if __name__ == '__main__':
+    main()
